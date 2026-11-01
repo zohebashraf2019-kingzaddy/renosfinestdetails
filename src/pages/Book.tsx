@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from '../lib/router';
 import { supabase } from '../lib/supabase';
-import { BOOKABLE_SERVICES, BOOKING_TIMES, BUSINESS, CONTACT_METHODS, DEPOSIT_POLICY, SQUARE } from '../lib/business';
+import { BOOKABLE_SERVICES, BOOKING_TIMES, BUSINESS, CONTACT_METHODS, DEPOSIT_POLICY, SQUARE, isBlockedDate } from '../lib/business';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -109,13 +109,15 @@ export function Book() {
   useEffect(() => {
     refreshTaken(date);
   }, [date]);
+  const dayBlocked = isBlockedDate(date);
   useEffect(() => {
-    if (time && taken.includes(time)) setTime('');
-  }, [taken, time]);
+    if (time && (dayBlocked || taken.includes(time))) setTime('');
+  }, [taken, time, dayBlocked]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!supabase || !cardRef.current) return;
+    if (dayBlocked) return setStatus({ kind: 'error', text: 'That date is fully booked. Please choose another date.' });
     if (!time) return setStatus({ kind: 'error', text: 'Please choose a start time.' });
     const form = e.currentTarget;
     const d = new FormData(form);
@@ -268,7 +270,7 @@ export function Book() {
                   {date ? (
                     <div className="slots" role="radiogroup" aria-label="Start time">
                       {BOOKING_TIMES.map((t) => {
-                        const isTaken = taken.includes(t);
+                        const isTaken = dayBlocked || taken.includes(t);
                         return (
                           <button
                             type="button"
@@ -288,6 +290,7 @@ export function Book() {
                   ) : (
                     <p className="form-note">Choose a date to see available times.</p>
                   )}
+                  {dayBlocked && <p className="form-note" style={{ color: '#f26a68' }}>This date is fully booked. Please choose another date.</p>}
                   <p className="form-note">Open {BUSINESS.hours}. {BUSINESS.hoursNote}</p>
                 </div>
 
